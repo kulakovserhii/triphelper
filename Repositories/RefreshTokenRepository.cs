@@ -20,6 +20,18 @@ namespace AuthService.Repositories
             return rowsAffected > 0;
         }
 
+        public async Task EnforceTokenLimitAsync(int userId, int maxTokens, CancellationToken ct = default)
+        {
+            var idsToDelete = await _context.RefreshTokens
+                .Where(rt => rt.UserId == userId)
+                .OrderByDescending(rt => rt.CreatedAt)
+                .Skip(maxTokens - 1)
+                .Select(rt => rt.Id)
+                .ToListAsync(ct);
+            if (idsToDelete.Count == 0) return;
+            await _context.RefreshTokens.Where(rt => idsToDelete.Contains(rt.Id)).ExecuteDeleteAsync(ct);
+        }
+
         public async Task<RefreshToken?> GetByTokenHashAsync(string hashToken, CancellationToken ct = default)
         {
             return await _context.RefreshTokens.AsNoTracking()

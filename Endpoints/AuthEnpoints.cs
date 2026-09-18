@@ -1,5 +1,6 @@
 ﻿using AuthService.Contracts;
 using AuthService.Services;
+using AuthService.Validators;
 
 namespace AuthService.Endpoints
 {
@@ -18,7 +19,7 @@ namespace AuthService.Endpoints
                     AuthFailure f => Results.Conflict(new { error = f.Error }),
                     _ => Results.Problem()
                 };
-            });
+            }).AddEndpointFilter<ValidationFilter<RegisterRequest>>();
 
             group.MapPost("/login", async (LoginRequest request, IAuthService authService, CancellationToken ct) =>
             {
@@ -29,7 +30,7 @@ namespace AuthService.Endpoints
                     AuthFailure => Results.Unauthorized(),
                     _ => Results.Problem()
                 };
-            });
+            }).AddEndpointFilter<ValidationFilter<LoginRequest>>();
 
             group.MapPost("/logout", async (LogoutRequest request, IAuthService authService, CancellationToken ct) =>
             {

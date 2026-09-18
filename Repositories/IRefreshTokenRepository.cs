@@ -7,5 +7,6 @@ namespace AuthService.Repositories
         Task AddAsync(RefreshToken token, CancellationToken ct = default);
         Task<RefreshToken?> GetByTokenHashAsync(string hashToken, CancellationToken ct = default);
         Task<bool> DeleteByTokenHashAsync(string tokenHash, CancellationToken ct = default);
+        Task EnforceTokenLimitAsync(int userId, int maxTokens, CancellationToken ct = default);
     }
 }

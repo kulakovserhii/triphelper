@@ -59,12 +59,14 @@ namespace AuthService.Services
                 UserRoles = new List<UserRole> { new() { RoleId = 1 } }
             };
             await _userRepository.AddAsync(user, ct);
-            await _context.SaveChangesAsync(ct);
+            await _context.SaveChangesAsync(ct);   
             user.UserRoles.First().Role = new Role { Id = 1, Name = "User" };
             return await IssueTokensAsync(user, request.DeviceInfo, ct);
         }
         private async Task<AuthResult> IssueTokensAsync(User user, string? deviceInfo, CancellationToken ct)
         {
+            const int maxTokensPerUser = 3;
+            await _refreshTokenRepository.EnforceTokenLimitAsync(user.Id, maxTokensPerUser, ct);
             var (acessToken, expiresAt) = _jwtProvider.GenerateAccessToken(user);
             var refreshTokenPlain = _jwtProvider.GenerateRefreshToken();
             var refreshToken = new RefreshToken
