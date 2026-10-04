@@ -1,7 +1,10 @@
 ﻿using AuthService.Contracts;
 using AuthService.Db;
 using AuthService.Entities;
+using AuthService.Options;
 using AuthService.Repositories;
+using Google.Apis.Auth;
+using Microsoft.Extensions.Options;
 
 namespace AuthService.Services
 {
@@ -13,20 +16,65 @@ namespace AuthService.Services
         private readonly IPasswordHasher _passwordHasher;
         private readonly AuthDbContext _context;
         private readonly IJwtProvider _jwtProvider;
+        private readonly GoogleAuthOptions _googleOptions;
         public AuthService(IUserRepository userRepository, IPasswordHasher passwordHasher, AuthDbContext context,
-            IRefreshTokenRepository refreshTokenRepository, IJwtProvider jwtProvider)
+            IRefreshTokenRepository refreshTokenRepository, IJwtProvider jwtProvider, IOptions<GoogleAuthOptions> googleOptions)
         {
             _userRepository = userRepository;
             _passwordHasher = passwordHasher;
             _context = context;
             _refreshTokenRepository = refreshTokenRepository;
             _jwtProvider = jwtProvider;
+            _googleOptions = googleOptions.Value;
+        }
+
+        public async Task<AuthResult> GoogleLoginAsync(GoogleLoginRequest request, CancellationToken ct)
+        {
+            GoogleJsonWebSignature.Payload payload;
+            try
+            {
+                payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { _googleOptions.ClientId }
+                });
+            }
+            catch (InvalidJwtException)
+            {
+                return new AuthFailure("Expired Google token");
+            }
+            var user = await _userRepository.GetByGoogleIdAsync(payload.Subject, ct);
+            if(user is null)
+            {
+                user = await _userRepository.GetUserByEmailAsync(payload.Email, ct);
+                if (user is not null)
+                {
+                    user.GoogleId = payload.Subject;
+                    _context.Users.Update(user);
+                }
+                else
+                {
+                    user = new User
+                    {
+                        Name = payload.GivenName ?? "Google",
+                        LastName = payload.FamilyName ?? "User",
+                        Email = payload.Email,
+                        GoogleId = payload.Subject,
+                        PasswordHash = null,
+                        UserRoles = new List<UserRole> { new() { RoleId = 1 } }
+                    };
+                    await _userRepository.AddAsync(user, ct);
+                }
+                await _context.SaveChangesAsync(ct);
+                if (user.UserRoles.All(ur => ur.Role is null))
+                    user.UserRoles.First().Role = new Role { Id = 1, Name = "User" };
+            }
+            return await IssueTokensAsync(user, request.DeviceInfo, ct);
         }
 
         public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default)
         {
             var user = await _userRepository.GetUserByEmailAsync(request.Email, ct);
-            if(user is null)
+            if(user is null || user.PasswordHash is null)
             {
                 _passwordHasher.Verify(request.Password, DummyHash);
                 return new AuthFailure("Wrong email or password");

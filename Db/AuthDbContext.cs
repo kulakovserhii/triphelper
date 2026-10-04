@@ -24,7 +24,8 @@ namespace AuthService.Db
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(256);
                 entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.PasswordHash).IsRequired();
+                entity.Property(e => e.PasswordHash).IsRequired(false);
+                entity.HasIndex(e => e.GoogleId).IsUnique().HasFilter("[GoogleId] IS NOT NULL");
             });
 
             modelBuilder.Entity<Role>(entity =>

@@ -21,6 +21,12 @@ namespace AuthService.Repositories
                 .AnyAsync(u => u.Email == email, ct);
         }
 
+        public async Task<User>? GetByGoogleIdAsync(string googleId, CancellationToken ct = default)
+        {
+            return await _context.Users.AsNoTracking().Include(u => u.UserRoles)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(u => u.GoogleId == googleId, ct);      
+        }
         public async Task<User?> GetUserByEmailAsync(string email, CancellationToken ct = default)
         {
             return await _context.Users

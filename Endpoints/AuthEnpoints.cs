@@ -37,6 +37,16 @@ namespace AuthService.Endpoints
                 var deleted = await authService.LogoutAsync(request.RefreshToken, ct);
                 return deleted ? Results.NoContent() : Results.NotFound();
             });
+            group.MapPost("/google", async (GoogleLoginRequest request, IAuthService authService, CancellationToken ct) =>
+            {
+                var result = await authService.GoogleLoginAsync(request, ct);
+                return result switch
+                {
+                    AuthSuccess s => Results.Ok(new AuthResponse(s.AccessToken, s.RefreshToken, s.AccessTokenExpiresAt)),
+                    AuthFailure f => Results.Unauthorized(),
+                    _ => Results.Problem()
+                };
+            }).AddEndpointFilter < ValidationFilter<GoogleLoginRequest>>();
         }
     }
 }
