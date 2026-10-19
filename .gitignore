@@ -60,3 +60,10 @@ nunit-*.xml
 
 appsettings.json
 appsettings.Development.json
+
+# Deploy credentials and publish profiles
+*.[Pp]ublish[Ss]ettings
+*.pubxml
+*.pubxml.user
+Properties/PublishProfiles/
+*.user
